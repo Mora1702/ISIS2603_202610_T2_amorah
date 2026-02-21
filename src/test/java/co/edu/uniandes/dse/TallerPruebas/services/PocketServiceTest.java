@@ -8,7 +8,7 @@ import java.util.List;
 import jakarta.transaction.Transactional;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Test   ;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -132,6 +132,60 @@ public class PocketServiceTest {
             newEntity.setNombre(pocketList.get(0).getNombre());
             
             pocketService.createPocket(account.getId(), newEntity);
+        });
+    }
+    @Test
+    void testMoveMoneyToPocket() throws EntityNotFoundException, BusinessLogicException {
+    AccountEntity account = accountList.get(0);
+    PocketEntity pocket = pocketList.get(0);
+    account.setSaldo(1000.0);
+    pocket.setSaldo(100.0);
+    entityManager.flush();
+    pocketService.moveMoneyToPocket(account.getId(), pocket.getId(), 200.0);
+    AccountEntity accountAfter = entityManager.find(AccountEntity.class, account.getId());
+    PocketEntity pocketAfter = entityManager.find(PocketEntity.class, pocket.getId());
+    assertEquals(800.0, accountAfter.getSaldo());
+    assertEquals(300.0, pocketAfter.getSaldo());
+    }
+
+
+    @Test
+    void testMoveMoneyToPocketInsufficientFunds()  {
+        AccountEntity account = accountList.get(0);
+        PocketEntity pocket = pocketList.get(0);
+        account.setSaldo(50.0);
+        pocket.setSaldo(100.0);
+        entityManager.flush();
+        assertThrows(BusinessLogicException.class, () -> {
+            pocketService.moveMoneyToPocket(account.getId(), pocket.getId(), 200.0);
+        });
+        AccountEntity accountAfter = entityManager.find(AccountEntity.class, account.getId());
+        PocketEntity pocketAfter = entityManager.find(PocketEntity.class, pocket.getId());
+
+        assertEquals(50.0, accountAfter.getSaldo());
+        assertEquals(100.0, pocketAfter.getSaldo());
+    }
+
+    @Test
+    void testMoveMoneyToPocketInvalidAccount() {
+        PocketEntity pocket = pocketList.get(0);
+        assertThrows(EntityNotFoundException.class, () -> {
+            pocketService.moveMoneyToPocket(0L, pocket.getId(), 10.0);
+        });
+    }
+    @Test
+    void testMoveMoneyToPocketInvalidPocket() {
+        AccountEntity account = accountList.get(0);
+        assertThrows(EntityNotFoundException.class, () -> {
+            pocketService.moveMoneyToPocket(account.getId(), 0L, 10.0);
+        });
+    }
+    @Test
+    void testMoveMoneyToPocketInvalidAmount() {
+        AccountEntity account = accountList.get(0);
+        PocketEntity pocket = pocketList.get(0);
+        assertThrows(BusinessLogicException.class, () -> {
+            pocketService.moveMoneyToPocket(account.getId(), pocket.getId(), 0.0);
         });
     }
 }
